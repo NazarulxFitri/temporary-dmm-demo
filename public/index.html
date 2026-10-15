@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stripe Connect — Separate Charges Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div>
+        <h1>DMM AI Platform — Separate Charges Demo</h1>
+        <p class="subtitle">A simple 2-step flow: Company pays DMM $\rightarrow$ DMM pays Professional</p>
+      </div>
+      <div class="balances">
+        <div class="bal-box">
+          <small>DMM Platform Balance</small>
+          <strong id="platformBal">¥0 JPY</strong>
+        </div>
+        <div class="bal-box">
+          <small>Professional Balance</small>
+          <strong id="workerBal" class="text-blue">¥0 JPY</strong>
+        </div>
+      </div>
+    </header>
+
+    <!-- 3 View Tabs -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="company">🏢 1. Company View</button>
+      <button class="tab-btn" data-tab="professional">🧑‍💻 2. Professional View</button>
+      <button class="tab-btn" data-tab="operations">🛠️ 3. DMM Operations View</button>
+    </nav>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- VIEW 1: COMPANY -->
+    <section id="view-company" class="tab-content active">
+      <div class="card">
+        <h2>Post a Job & Pay (Company)</h2>
+        <p class="desc">The company pays the money upfront. Funds land in DMM's platform account first.</p>
+
+        <form id="postJobForm">
+          <div class="field">
+            <label>Job Title</label>
+            <input type="text" id="jobTitle" placeholder="e.g. Build AI Assistant" required>
+          </div>
+          <div class="field">
+            <label>Payment Amount (JPY)</label>
+            <input type="number" id="jobAmount" placeholder="e.g. 10000" min="1000" step="1000" required>
+          </div>
+          <button type="submit" class="btn btn-primary" id="btnCreateJob">
+            Create Job & Initialize Payment
+          </button>
+        </form>
+
+        <!-- Payment Box (shows after creating job) -->
+        <div id="paymentBox" class="payment-box hidden">
+          <h3>Pay for Job: <span id="payingJobTitle"></span></h3>
+          <p>Amount to charge: <strong id="payingJobAmount"></strong> JPY</p>
+          
+          <div style="margin: 14px 0;">
+            <button type="button" class="btn btn-success" id="btnQuickPay">
+              💳 1-Click Pay with Test Card (Visa)
+            </button>
+            <span style="font-size:12px; color:#64748b; margin-left:8px;">or use card input below:</span>
+          </div>
+
+          <div id="payment-element" class="stripe-box"></div>
+          <button type="button" class="btn btn-secondary btn-block" id="btnStripePay" style="margin-top:10px;">
+            Submit Card Payment
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: PROFESSIONAL -->
+    <section id="view-professional" class="tab-content">
+      <div class="card">
+        <h2>Professional Jobs & Payments</h2>
+        <p class="desc">The professional sees jobs paid by the company, agrees to the job, and receives the transfer from DMM.</p>
+
+        <div id="professionalJobsList" class="jobs-list">
+          <!-- Jobs rendered here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: DMM OPERATIONS -->
+    <section id="view-operations" class="tab-content">
+      <div class="card">
+        <h2>DMM Operations & Transaction Ledger</h2>
+        <p class="desc">See the Separate Charges flow: the company's Charge ID and the separate Transfer ID to the professional.</p>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Job ID / Title</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Step 1: Charge on DMM</th>
+              <th>Step 2: Transfer to Worker</th>
+            </tr>
+          </thead>
+          <tbody id="operationsTableBody">
+            <!-- Table rows rendered here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
