@@ -6,7 +6,14 @@ const Stripe = require('stripe');
 
 const app = express();
 const port = process.env.PORT || 4000;
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+const isKeyConfigured = Boolean(
+  process.env.STRIPE_SECRET_KEY &&
+  !process.env.STRIPE_SECRET_KEY.includes('...') &&
+  process.env.STRIPE_SECRET_KEY.startsWith('sk_')
+);
+
+const stripe = Stripe(isKeyConfigured ? process.env.STRIPE_SECRET_KEY : 'sk_test_placeholder');
 
 app.use(cors());
 app.use(express.json());
@@ -25,25 +32,35 @@ const db = {
 // 1. Get Config & Overview
 app.get('/api/overview', async (req, res) => {
   try {
-    const b = await stripe.balance.retrieve();
-    const pAvail = b.available.find(x => x.currency === 'jpy')?.amount || 0;
-    const pPend = b.pending?.find(x => x.currency === 'jpy')?.amount || 0;
-    const platformBalance = pAvail + pPend;
+    let platformBalance = 0;
+    if (isKeyConfigured) {
+      try {
+        const b = await stripe.balance.retrieve();
+        const pAvail = b.available.find(x => x.currency === 'jpy')?.amount || 0;
+        const pPend = b.pending?.find(x => x.currency === 'jpy')?.amount || 0;
+        platformBalance = pAvail + pPend;
+      } catch (e) {
+        console.warn('Platform balance retrieve error:', e.message);
+      }
+    }
 
     let workerBalance = 0;
     let workerAvail = 0;
     let workerPend = 0;
-    try {
-      const wb = await stripe.balance.retrieve({}, { stripeAccount: db.professional.stripeAccountId });
-      workerAvail = wb.available.find(x => x.currency === 'jpy')?.amount || 0;
-      workerPend = wb.pending?.find(x => x.currency === 'jpy')?.amount || 0;
-      workerBalance = workerAvail + workerPend;
-    } catch (e) {
-      console.warn('Worker balance retrieve error:', e.message);
+    if (isKeyConfigured) {
+      try {
+        const wb = await stripe.balance.retrieve({}, { stripeAccount: db.professional.stripeAccountId });
+        workerAvail = wb.available.find(x => x.currency === 'jpy')?.amount || 0;
+        workerPend = wb.pending?.find(x => x.currency === 'jpy')?.amount || 0;
+        workerBalance = workerAvail + workerPend;
+      } catch (e) {
+        console.warn('Worker balance retrieve error:', e.message);
+      }
     }
 
     res.json({
-      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+      isConfigured: isKeyConfigured,
       professional: db.professional,
       platformBalance,
       workerBalance,
@@ -59,6 +76,10 @@ app.get('/api/overview', async (req, res) => {
 // 2. Company creates job & PaymentIntent (The "Charge" part)
 app.post('/api/jobs/create-charge', async (req, res) => {
   try {
+    if (!isKeyConfigured) {
+      return res.status(400).json({ error: 'Stripe API keys are not configured. Please add your test keys in .env' });
+    }
+
     const { title, amount } = req.body;
     const chargeAmount = parseInt(amount, 10) || 10000;
     const jobId = 'job_' + Date.now();
@@ -97,6 +118,10 @@ app.post('/api/jobs/create-charge', async (req, res) => {
 // 3. Confirm card payment succeeded on DMM platform
 app.post('/api/jobs/:id/paid', async (req, res) => {
   try {
+    if (!isKeyConfigured) {
+      return res.status(400).json({ error: 'Stripe API keys are not configured. Please add your test keys in .env' });
+    }
+
     const job = db.jobs.find(j => j.id === req.params.id);
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
@@ -117,6 +142,10 @@ app.post('/api/jobs/:id/paid', async (req, res) => {
 // 4. Quick Test Payment (One-click simulated payment for testing)
 app.post('/api/jobs/:id/quick-pay', async (req, res) => {
   try {
+    if (!isKeyConfigured) {
+      return res.status(400).json({ error: 'Stripe API keys are not configured. Please add your test keys in .env' });
+    }
+
     const job = db.jobs.find(j => j.id === req.params.id);
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
@@ -137,6 +166,10 @@ app.post('/api/jobs/:id/quick-pay', async (req, res) => {
 // 5. Professional agrees & receives payment (The "Transfer" part)
 app.post('/api/jobs/:id/transfer-to-professional', async (req, res) => {
   try {
+    if (!isKeyConfigured) {
+      return res.status(400).json({ error: 'Stripe API keys are not configured. Please add your test keys in .env' });
+    }
+
     const job = db.jobs.find(j => j.id === req.params.id);
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
@@ -163,5 +196,9 @@ app.post('/api/jobs/:id/transfer-to-professional', async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Simple Separate Charges demo running at http://localhost:${port}`);
+  console.log(`\n🚀 Simple Separate Charges demo running at http://localhost:${port}`);
+  if (!isKeyConfigured) {
+    console.log(`⚠️  Notice: Stripe keys not yet configured in .env.`);
+    console.log(`   To enable live Stripe charges & transfers, update STRIPE_PUBLISHABLE_KEY and STRIPE_SECRET_KEY in .env.\n`);
+  }
 });
