@@ -41,9 +41,18 @@
 
     <!-- Navigation Tabs -->
     <nav class="tabs">
-      <button class="tab-btn active" data-tab="client">🏢 1. Client View</button>
-      <button class="tab-btn" data-tab="individual">🧑‍💻 2. Individual View</button>
-      <button class="tab-btn" data-tab="operations">🛠️ 3. DMM Operations View</button>
+      <button class="tab-btn active" data-tab="client" id="tabBtnClient">
+        🏢 1. Client View
+        <span class="tab-badge-indicator hidden" id="clientBadge"></span>
+      </button>
+      <button class="tab-btn" data-tab="individual" id="tabBtnIndividual">
+        🧑‍💻 2. Individual View
+        <span class="tab-badge-indicator hidden" id="individualBadge"></span>
+      </button>
+      <button class="tab-btn" data-tab="operations" id="tabBtnOperations">
+        🛠️ 3. DMM Operations View
+        <span class="tab-badge-indicator hidden" id="operationsBadge"></span>
+      </button>
     </nav>
 
     <div id="toast" class="toast hidden"></div>
@@ -93,22 +102,17 @@
             <button type="button" class="close-btn" id="btnClosePayModal">&times;</button>
           </div>
           <div class="modal-body">
-            <p style="margin-bottom:12px;">Payment goes to <strong>DMM's Stripe account</strong> and is held until deliverables are confirmed.</p>
+            <p style="margin-bottom:12px; font-size:13px; color:#475569;">Payment goes to <strong>DMM's Stripe account</strong> and is held until deliverables are confirmed.</p>
             <div class="payment-info">
               <div>Job: <strong id="payJobTitle">-</strong></div>
               <div>Fee: <strong id="payJobAmount">-</strong></div>
             </div>
 
-            <div style="margin-bottom:16px;">
+            <div>
               <button type="button" class="btn btn-success btn-block" id="btnQuickPay">
                 💳 1-Click Pay with Test Card (Visa)
               </button>
             </div>
-
-            <div id="stripePaymentElement" class="stripe-box"></div>
-            <button type="button" class="btn btn-secondary btn-block" id="btnStripeCardPay" style="margin-top:10px;">
-              Submit Card Payment
-            </button>
           </div>
         </div>
       </div>

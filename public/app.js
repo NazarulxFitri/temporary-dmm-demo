@@ -108,30 +108,6 @@ function setupEvents() {
     }
   });
 
-  // Step 5: Stripe Elements Payment
-  document.getElementById('btnStripeCardPay').addEventListener('click', async () => {
-    if (!stripe || !elements || !activePaymentJobId) return;
-    try {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        redirect: 'if_required'
-      });
-
-      if (error) {
-        showToast('Payment failed: ' + error.message);
-        return;
-      }
-
-      if (paymentIntent && paymentIntent.status === 'succeeded') {
-        await fetch(`/api/jobs/${activePaymentJobId}/confirm-payment`, { method: 'POST' });
-        showToast('Step 5 Complete: Fee paid to DMM Stripe account.');
-        document.getElementById('paymentModal').classList.add('hidden');
-        await refreshData();
-      }
-    } catch (err) {
-      showToast('Error: ' + err.message);
-    }
-  });
 
   // Step 7: Individual to submit the deliverables
   document.getElementById('deliverablesForm').addEventListener('submit', async (e) => {
@@ -185,8 +161,67 @@ async function refreshData() {
     renderClientView(latestJobs);
     renderIndividualView(latestJobs);
     renderOperationsView(latestJobs);
+    updateTabBadges(latestJobs);
   } catch (err) {
     console.error('Refresh error:', err);
+  }
+}
+
+// Indicator Badges on Tabs to guide the tester
+function updateTabBadges(jobs) {
+  let clientActions = 0;
+  let individualActions = 0;
+  let operationsActions = 0;
+
+  if (!jobs || jobs.length === 0) {
+    clientActions = 1; // Step 1: Client to post a job
+  } else {
+    jobs.forEach(job => {
+      // Actions for Client: Step 3 (APPLIED), Step 5 (OFFER_ACCEPTED), Step 8 (DELIVERABLES_SUBMITTED)
+      if (['APPLIED', 'OFFER_ACCEPTED', 'DELIVERABLES_SUBMITTED'].includes(job.status)) {
+        clientActions++;
+      }
+      // Actions for Individual: Step 2 (JOB_POSTED), Step 4 (OFFERED), Step 6 (FEE_PAID_TO_DMM), Step 7 (WORKING)
+      if (['JOB_POSTED', 'OFFERED', 'FEE_PAID_TO_DMM', 'WORKING'].includes(job.status)) {
+        individualActions++;
+      }
+      // Step 9: Settle and payout
+      if (job.status === 'DELIVERABLES_CONFIRMED') {
+        operationsActions++;
+        clientActions++;
+      }
+    });
+  }
+
+  const clientEl = document.getElementById('clientBadge');
+  const individualEl = document.getElementById('individualBadge');
+  const opsEl = document.getElementById('operationsBadge');
+
+  if (clientEl) {
+    if (clientActions > 0) {
+      clientEl.textContent = clientActions;
+      clientEl.classList.remove('hidden');
+    } else {
+      clientEl.classList.add('hidden');
+    }
+  }
+
+  if (individualEl) {
+    if (individualActions > 0) {
+      individualEl.textContent = individualActions;
+      individualEl.classList.remove('hidden');
+    } else {
+      individualEl.classList.add('hidden');
+    }
+  }
+
+  if (opsEl) {
+    if (operationsActions > 0) {
+      opsEl.textContent = operationsActions;
+      opsEl.classList.remove('hidden');
+    } else {
+      opsEl.classList.add('hidden');
+    }
   }
 }
 
@@ -413,7 +448,7 @@ window.individualAcceptOffer = async function(id) {
 };
 
 // Step 5: Client opens payment modal
-window.clientOpenPaymentModal = async function(id) {
+window.clientOpenPaymentModal = function(id) {
   activePaymentJobId = id;
   const job = latestJobs.find(j => j.id === id);
   if (!job) return;
@@ -421,21 +456,6 @@ window.clientOpenPaymentModal = async function(id) {
   document.getElementById('payJobTitle').textContent = job.title;
   document.getElementById('payJobAmount').textContent = `¥${job.amount.toLocaleString()} JPY`;
   document.getElementById('paymentModal').classList.remove('hidden');
-
-  try {
-    const res = await fetch(`/api/jobs/${id}/create-payment-intent`, { method: 'POST' });
-    const data = await res.json();
-    if (data.clientSecret && stripe) {
-      currentClientSecret = data.clientSecret;
-      elements = stripe.elements({ clientSecret: currentClientSecret });
-      const paymentElement = elements.create('payment');
-      const mount = document.getElementById('stripePaymentElement');
-      mount.innerHTML = '';
-      paymentElement.mount('#stripePaymentElement');
-    }
-  } catch (err) {
-    console.warn('Elements mount notice:', err.message);
-  }
 };
 
 // Step 6: Individual to start working
