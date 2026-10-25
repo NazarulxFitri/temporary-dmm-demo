@@ -154,21 +154,23 @@
         <h2>DMM Operations & Transaction Ledger</h2>
         <p class="desc">Step 9: DMM transfers net fee to individual Stripe account and payouts to bank account after deducting 5% commission.</p>
 
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Job ID / Title</th>
-              <th>Total Client Fee</th>
-              <th>DMM Commission (5%)</th>
-              <th>Net Payout (95%)</th>
-              <th>Step 5: Stripe Charge ID</th>
-              <th>Step 9: Stripe Transfer ID</th>
-              <th>Step 9: Bank Payout</th>
-              <th>Current Step</th>
-            </tr>
-          </thead>
-          <tbody id="operationsTableBody"></tbody>
-        </table>
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Job / ID</th>
+                <th>Client Fee</th>
+                <th>DMM Fee (5%)</th>
+                <th>Net (95%)</th>
+                <th>Charge ID (DMM)</th>
+                <th>Transfer ID</th>
+                <th>Bank Payout</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="operationsTableBody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </div>

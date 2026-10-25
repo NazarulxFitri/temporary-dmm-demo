@@ -384,14 +384,18 @@ function renderOperationsView(jobs) {
     const tr = document.createElement('tr');
     const stepInfo = STEPS_MAP[job.status] || { step: '-', label: job.status };
 
+    const chargeId = job.chargeId || '-';
+    const transferId = job.transferId || '-';
+    const payoutId = job.payoutId || '-';
+
     tr.innerHTML = `
-      <td><strong>${escapeHtml(job.title)}</strong><br><small style="color:#64748b;">${job.id}</small></td>
+      <td><strong>${escapeHtml(job.title)}</strong><br><small style="color:#64748b; font-size:10px;">${job.id}</small></td>
       <td><strong>¥${job.amount.toLocaleString()} JPY</strong></td>
       <td class="text-gold">¥${(job.dmmCommission || Math.round(job.amount * 0.05)).toLocaleString()} JPY</td>
       <td class="text-green">¥${(job.netPayout || (job.amount - Math.round(job.amount * 0.05))).toLocaleString()} JPY</td>
-      <td><code>${job.chargeId || '-'}</code></td>
-      <td><code>${job.transferId || '-'}</code></td>
-      <td><code>${job.payoutId || '-'}</code></td>
+      <td><code title="${chargeId}">${chargeId}</code></td>
+      <td><code title="${transferId}">${transferId}</code></td>
+      <td><code title="${payoutId}">${payoutId}</code></td>
       <td><span class="step-badge">${stepInfo.label}</span></td>
     `;
 
