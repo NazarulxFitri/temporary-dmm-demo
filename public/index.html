@@ -3,113 +3,167 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stripe Connect — Separate Charges Demo</title>
+  <title>DMM AI Talent — One-off Project Payment Workflow</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
   <div class="container">
-    <!-- Header -->
+    <!-- Header with Live Balances -->
     <header class="header">
-      <div>
-        <h1>DMM AI Platform — Separate Charges Demo</h1>
-        <p class="subtitle">A simple 2-step flow: Company pays DMM $\rightarrow$ DMM pays Professional</p>
+      <div class="header-brand">
+        <h1>DMM AI Talent — One-off Project Payment Workflow</h1>
+        <p class="subtitle">Separate Charges & Transfers with 5% DMM Platform Commission</p>
       </div>
-      <div class="balances">
-        <div class="bal-box">
-          <small>DMM Platform Balance</small>
-          <strong id="platformBal">¥0 JPY</strong>
+      <div class="balances-bar">
+        <div class="balance-card">
+          <span class="bal-label">DMM Platform Balance</span>
+          <strong class="bal-value" id="platformBal">¥0 JPY</strong>
         </div>
-        <div class="bal-box">
-          <small>Professional Balance</small>
-          <strong id="workerBal" class="text-blue">¥0 JPY</strong>
+        <div class="balance-card">
+          <span class="bal-label">DMM Commission Kept (5%)</span>
+          <strong class="bal-value text-gold" id="commissionBal">¥0 JPY</strong>
+        </div>
+        <div class="balance-card">
+          <span class="bal-label">Individual Stripe Balance</span>
+          <strong class="bal-value text-blue" id="workerBal">¥0 JPY</strong>
+          <span class="bal-sub" id="workerAcct"></span>
+        </div>
+        <div class="balance-card">
+          <span class="bal-label">Individual Bank Account</span>
+          <strong class="bal-value text-green" id="workerBank">-</strong>
         </div>
       </div>
     </header>
 
-    <!-- 3 View Tabs -->
+    <!-- Navigation Tabs -->
     <nav class="tabs">
-      <button class="tab-btn active" data-tab="company">🏢 1. Company View</button>
-      <button class="tab-btn" data-tab="professional">🧑‍💻 2. Professional View</button>
+      <button class="tab-btn active" data-tab="client">🏢 1. Client View</button>
+      <button class="tab-btn" data-tab="individual">🧑‍💻 2. Individual View</button>
       <button class="tab-btn" data-tab="operations">🛠️ 3. DMM Operations View</button>
     </nav>
 
     <div id="toast" class="toast hidden"></div>
 
-    <!-- VIEW 1: COMPANY -->
-    <section id="view-company" class="tab-content active">
-      <div class="card">
-        <h2>Post a Job & Pay (Company)</h2>
-        <p class="desc">The company pays the money upfront. Funds land in DMM's platform account first.</p>
+    <!-- TAB 1: CLIENT VIEW -->
+    <section id="view-client" class="tab-content active">
+      <div class="layout-grid">
+        <!-- Step 1: Post Job Form -->
+        <div class="card">
+          <h2>Step 1: Client to post a job</h2>
+          <p class="desc">Create a job with title and total fee. Payment is not charged until the offer is accepted.</p>
 
-        <form id="postJobForm">
-          <div class="field">
-            <label>Job Title</label>
-            <input type="text" id="jobTitle" placeholder="e.g. Build AI Assistant" required>
-          </div>
-          <div class="field">
-            <label>Payment Amount (JPY)</label>
-            <input type="number" id="jobAmount" placeholder="e.g. 10000" min="1000" step="1000" required>
-          </div>
-          <button type="submit" class="btn btn-primary" id="btnCreateJob">
-            Create Job & Initialize Payment
-          </button>
-        </form>
+          <form id="postJobForm">
+            <div class="field">
+              <label for="jobTitle">Job Title</label>
+              <input type="text" id="jobTitle" placeholder="Enter job title" required>
+            </div>
+            <div class="field">
+              <label for="jobAmount">Total Fee (JPY)</label>
+              <input type="number" id="jobAmount" placeholder="e.g. 10000" min="100" step="100" required>
+            </div>
 
-        <!-- Payment Box (shows after creating job) -->
-        <div id="paymentBox" class="payment-box hidden">
-          <h3>Pay for Job: <span id="payingJobTitle"></span></h3>
-          <p>Amount to charge: <strong id="payingJobAmount"></strong> JPY</p>
-          
-          <div style="margin: 14px 0;">
-            <button type="button" class="btn btn-success" id="btnQuickPay">
-              💳 1-Click Pay with Test Card (Visa)
+            <div class="fee-breakdown" id="feeBreakdown">
+              <div><span>Total Fee Paid by Client:</span> <strong id="calcTotal">¥0 JPY</strong></div>
+              <div><span>DMM Commission (5%):</span> <strong class="text-gold" id="calcDmm">- ¥0 JPY</strong></div>
+              <div><span>Net Payout to Individual (95%):</span> <strong class="text-green" id="calcNet">¥0 JPY</strong></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Post Job</button>
+          </form>
+        </div>
+
+        <!-- Client Jobs & Actions (Steps 3, 5, 8) -->
+        <div class="card">
+          <h2>Client Jobs & Actions</h2>
+          <p class="desc">Manage posted jobs: make offers (Step 3), pay fee to DMM (Step 5), and confirm deliverables (Step 8).</p>
+
+          <div id="clientJobsList" class="jobs-list"></div>
+        </div>
+      </div>
+
+      <!-- Step 5 Payment Modal -->
+      <div id="paymentModal" class="modal-backdrop hidden">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Step 5: Client to pay for the fee</h3>
+            <button type="button" class="close-btn" id="btnClosePayModal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p style="margin-bottom:12px;">Payment goes to <strong>DMM's Stripe account</strong> and is held until deliverables are confirmed.</p>
+            <div class="payment-info">
+              <div>Job: <strong id="payJobTitle">-</strong></div>
+              <div>Fee: <strong id="payJobAmount">-</strong></div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <button type="button" class="btn btn-success btn-block" id="btnQuickPay">
+                💳 1-Click Pay with Test Card (Visa)
+              </button>
+            </div>
+
+            <div id="stripePaymentElement" class="stripe-box"></div>
+            <button type="button" class="btn btn-secondary btn-block" id="btnStripeCardPay" style="margin-top:10px;">
+              Submit Card Payment
             </button>
-            <span style="font-size:12px; color:#64748b; margin-left:8px;">or use card input below:</span>
           </div>
-
-          <div id="payment-element" class="stripe-box"></div>
-          <button type="button" class="btn btn-secondary btn-block" id="btnStripePay" style="margin-top:10px;">
-            Submit Card Payment
-          </button>
         </div>
       </div>
     </section>
 
-    <!-- VIEW 2: PROFESSIONAL -->
-    <section id="view-professional" class="tab-content">
+    <!-- TAB 2: INDIVIDUAL VIEW -->
+    <section id="view-individual" class="tab-content">
       <div class="card">
-        <h2>Professional Jobs & Payments</h2>
-        <p class="desc">The professional sees jobs paid by the company, agrees to the job, and receives the transfer from DMM.</p>
+        <h2>Individual Jobs & Actions</h2>
+        <p class="desc">Apply (Step 2), accept offers (Step 4), start working (Step 6), and submit deliverables (Step 7).</p>
 
-        <div id="professionalJobsList" class="jobs-list">
-          <!-- Jobs rendered here -->
+        <div id="individualJobsList" class="jobs-list"></div>
+      </div>
+
+      <!-- Step 7 Deliverables Modal -->
+      <div id="deliverablesModal" class="modal-backdrop hidden">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Step 7: Individual to submit the deliverables</h3>
+            <button type="button" class="close-btn" id="btnCloseDeliverablesModal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form id="deliverablesForm">
+              <input type="hidden" id="deliverablesJobId">
+              <div class="field">
+                <label for="deliverablesContent">Deliverables (Description / Links / Notes)</label>
+                <textarea id="deliverablesContent" rows="4" placeholder="Enter deliverables details or links" required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-block">Submit Deliverables</button>
+            </form>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- VIEW 3: DMM OPERATIONS -->
+    <!-- TAB 3: DMM OPERATIONS VIEW -->
     <section id="view-operations" class="tab-content">
       <div class="card">
         <h2>DMM Operations & Transaction Ledger</h2>
-        <p class="desc">See the Separate Charges flow: the company's Charge ID and the separate Transfer ID to the professional.</p>
+        <p class="desc">Step 9: DMM transfers net fee to individual Stripe account and payouts to bank account after deducting 5% commission.</p>
 
         <table class="table">
           <thead>
             <tr>
               <th>Job ID / Title</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Step 1: Charge on DMM</th>
-              <th>Step 2: Transfer to Worker</th>
+              <th>Total Client Fee</th>
+              <th>DMM Commission (5%)</th>
+              <th>Net Payout (95%)</th>
+              <th>Step 5: Stripe Charge ID</th>
+              <th>Step 9: Stripe Transfer ID</th>
+              <th>Step 9: Bank Payout</th>
+              <th>Current Step</th>
             </tr>
           </thead>
-          <tbody id="operationsTableBody">
-            <!-- Table rows rendered here -->
-          </tbody>
+          <tbody id="operationsTableBody"></tbody>
         </table>
       </div>
     </section>

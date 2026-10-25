@@ -1,49 +1,31 @@
-// ==========================================================
-// Simple Separate Charges Demo App
-// 1. Company: Post Job & Pay
-// 2. Professional: Agree & Get Paid (Separate Transfer)
-// 3. DMM Operations: See the Data
-// ==========================================================
+// ==============================================================================
+// DMM AI Talent — One-off Project Payment Workflow (Stripe Connect)
+// Strict 9-Step Flow with 5% DMM Platform Commission
+// ==============================================================================
 
-let stripeInstance = null;
-let elementsInstance = null;
+let stripe = null;
+let elements = null;
 let currentClientSecret = null;
-let currentJobId = null;
+let activePaymentJobId = null;
+let latestJobs = [];
+
+const STEPS_MAP = {
+  JOB_POSTED: { step: 1, label: 'Step 1: Client posted job' },
+  APPLIED: { step: 2, label: 'Step 2: Individual applied' },
+  OFFERED: { step: 3, label: 'Step 3: Client offered' },
+  OFFER_ACCEPTED: { step: 4, label: 'Step 4: Individual accepted offer' },
+  FEE_PAID_TO_DMM: { step: 5, label: 'Step 5: Fee paid to DMM' },
+  WORKING: { step: 6, label: 'Step 6: Individual working' },
+  DELIVERABLES_SUBMITTED: { step: 7, label: 'Step 7: Deliverables submitted' },
+  DELIVERABLES_CONFIRMED: { step: 8, label: 'Step 8: Deliverables confirmed' },
+  COMPLETED: { step: 9, label: 'Step 9: Transferred & paid out (5% fee deducted)' }
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupTabs();
-  await initStripe();
-  await refreshData();
   setupEvents();
+  await refreshData();
 });
-
-async function initStripe() {
-  try {
-    const res = await fetch('/api/overview');
-    const data = await res.json();
-    if (data.publishableKey) {
-      stripeInstance = Stripe(data.publishableKey);
-    }
-  } catch (err) {
-    console.error('Stripe init error:', err);
-  }
-}
-
-async function refreshData() {
-  try {
-    const res = await fetch('/api/overview');
-    const data = await res.json();
-
-    // Balances
-    document.getElementById('platformBal').textContent = `¥${(data.platformBalance || 0).toLocaleString()} JPY`;
-    document.getElementById('workerBal').textContent = `¥${(data.workerBalance || 0).toLocaleString()} JPY`;
-
-    renderProfessionalView(data.jobs);
-    renderOperationsView(data.jobs);
-  } catch (err) {
-    console.error('Refresh error:', err);
-  }
-}
 
 function setupTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -58,68 +40,80 @@ function setupTabs() {
 }
 
 function setupEvents() {
-  // 1. Company creates job
-  const form = document.getElementById('postJobForm');
-  form.addEventListener('submit', async (e) => {
+  // Post Job Fee calculation preview
+  const amountInput = document.getElementById('jobAmount');
+  const updatePreview = () => {
+    const fee = parseInt(amountInput.value, 10) || 0;
+    const dmm = Math.round(fee * 0.05);
+    const net = fee - dmm;
+    document.getElementById('calcTotal').textContent = `¥${fee.toLocaleString()} JPY`;
+    document.getElementById('calcDmm').textContent = `- ¥${dmm.toLocaleString()} JPY`;
+    document.getElementById('calcNet').textContent = `¥${net.toLocaleString()} JPY`;
+  };
+  amountInput.addEventListener('input', updatePreview);
+
+  // Step 1: Client to post a job
+  document.getElementById('postJobForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const title = document.getElementById('jobTitle').value;
+    const title = document.getElementById('jobTitle').value.trim();
     const amount = document.getElementById('jobAmount').value;
 
     try {
-      const res = await fetch('/api/jobs/create-charge', {
+      const res = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, amount })
       });
       const data = await res.json();
-
-      if (data.job) {
-        currentJobId = data.job.id;
-        currentClientSecret = data.clientSecret;
-
-        // Show payment box
-        document.getElementById('payingJobTitle').textContent = data.job.title;
-        document.getElementById('payingJobAmount').textContent = Number(data.job.amount).toLocaleString();
-        document.getElementById('paymentBox').classList.remove('hidden');
-
-        // Mount Stripe Elements
-        elementsInstance = stripeInstance.elements({ clientSecret: currentClientSecret });
-        const paymentElement = elementsInstance.create('payment');
-        const mount = document.getElementById('payment-element');
-        mount.innerHTML = '';
-        paymentElement.mount('#payment-element');
-
-        showToast('Job created! Please submit payment.');
-        await refreshData();
-      }
-    } catch (err) {
-      showToast('Error: ' + err.message);
-    }
-  });
-
-  // 1-Click Test Payment Button
-  document.getElementById('btnQuickPay').addEventListener('click', async () => {
-    if (!currentJobId) return;
-    try {
-      const res = await fetch(`/api/jobs/${currentJobId}/quick-pay`, { method: 'POST' });
-      const data = await res.json();
       if (data.success) {
-        showToast('🟢 Paid to DMM Platform Account! Money is now held by DMM.');
-        document.getElementById('paymentBox').classList.add('hidden');
+        showToast('Step 1 Complete: Job posted successfully.');
         document.getElementById('postJobForm').reset();
+        updatePreview();
         await refreshData();
+      } else {
+        showToast('Error: ' + data.error);
       }
     } catch (err) {
       showToast('Error: ' + err.message);
     }
   });
 
-  // Standard Card Submit
-  document.getElementById('btnStripePay').addEventListener('click', async () => {
-    if (!stripeInstance || !elementsInstance || !currentJobId) return;
+  // Modal Closers
+  document.getElementById('btnClosePayModal').addEventListener('click', () => {
+    document.getElementById('paymentModal').classList.add('hidden');
+  });
+  document.getElementById('btnCloseDeliverablesModal').addEventListener('click', () => {
+    document.getElementById('deliverablesModal').classList.add('hidden');
+  });
+
+  // Step 5: 1-Click Test Card Payment
+  document.getElementById('btnQuickPay').addEventListener('click', async () => {
+    if (!activePaymentJobId) return;
     try {
-      const { error, paymentIntent } = await stripeInstance.confirmPayment({
-        elements: elementsInstance,
+      const btn = document.getElementById('btnQuickPay');
+      btn.disabled = true;
+      const res = await fetch(`/api/jobs/${activePaymentJobId}/quick-pay`, { method: 'POST' });
+      const data = await res.json();
+      btn.disabled = false;
+
+      if (data.success) {
+        showToast('Step 5 Complete: Fee paid to DMM Stripe account.');
+        document.getElementById('paymentModal').classList.add('hidden');
+        await refreshData();
+      } else {
+        showToast('Payment error: ' + data.error);
+      }
+    } catch (err) {
+      showToast('Error: ' + err.message);
+    }
+  });
+
+  // Step 5: Stripe Elements Payment
+  document.getElementById('btnStripeCardPay').addEventListener('click', async () => {
+    if (!stripe || !elements || !activePaymentJobId) return;
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
         redirect: 'if_required'
       });
 
@@ -129,11 +123,35 @@ function setupEvents() {
       }
 
       if (paymentIntent && paymentIntent.status === 'succeeded') {
-        await fetch(`/api/jobs/${currentJobId}/paid`, { method: 'POST' });
-        showToast('🟢 Paid to DMM Platform Account! Money is held by DMM.');
-        document.getElementById('paymentBox').classList.add('hidden');
-        document.getElementById('postJobForm').reset();
+        await fetch(`/api/jobs/${activePaymentJobId}/confirm-payment`, { method: 'POST' });
+        showToast('Step 5 Complete: Fee paid to DMM Stripe account.');
+        document.getElementById('paymentModal').classList.add('hidden');
         await refreshData();
+      }
+    } catch (err) {
+      showToast('Error: ' + err.message);
+    }
+  });
+
+  // Step 7: Individual to submit the deliverables
+  document.getElementById('deliverablesForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const jobId = document.getElementById('deliverablesJobId').value;
+    const deliverables = document.getElementById('deliverablesContent').value.trim();
+
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/submit-deliverables`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliverables })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Step 7 Complete: Deliverables submitted.');
+        document.getElementById('deliverablesModal').classList.add('hidden');
+        await refreshData();
+      } else {
+        showToast('Error: ' + data.error);
       }
     } catch (err) {
       showToast('Error: ' + err.message);
@@ -141,13 +159,44 @@ function setupEvents() {
   });
 }
 
-// 2. Professional View
-function renderProfessionalView(jobs) {
-  const container = document.getElementById('professionalJobsList');
+// Fetch balances and render views
+async function refreshData() {
+  try {
+    const res = await fetch('/api/overview');
+    const data = await res.json();
+    latestJobs = data.jobs || [];
+
+    if (data.publishableKey && !stripe) {
+      stripe = Stripe(data.publishableKey);
+    }
+
+    // Top Balances
+    document.getElementById('platformBal').textContent = `¥${(data.platformBalance || 0).toLocaleString()} JPY`;
+    document.getElementById('commissionBal').textContent = `¥${(data.totalCommissionEarned || 0).toLocaleString()} JPY`;
+    document.getElementById('workerBal').textContent = `¥${(data.workerBalance || 0).toLocaleString()} JPY`;
+    document.getElementById('workerAcct').textContent = data.connectedAccountId || '';
+
+    if (data.connectedAccount?.bankName) {
+      document.getElementById('workerBank').textContent = `${data.connectedAccount.bankName} ••••${data.connectedAccount.bankLast4}`;
+    } else {
+      document.getElementById('workerBank').textContent = 'None registered';
+    }
+
+    renderClientView(latestJobs);
+    renderIndividualView(latestJobs);
+    renderOperationsView(latestJobs);
+  } catch (err) {
+    console.error('Refresh error:', err);
+  }
+}
+
+// TAB 1: CLIENT VIEW (Steps 1, 3, 5, 8, 9)
+function renderClientView(jobs) {
+  const container = document.getElementById('clientJobsList');
   if (!container) return;
 
-  if (!jobs || jobs.length === 0) {
-    container.innerHTML = '<p style="color:#64748b; font-size:13px;">No jobs posted yet. Go to Company View to post a job.</p>';
+  if (jobs.length === 0) {
+    container.innerHTML = '<p style="color:#64748b; font-size:13px;">No jobs posted yet. Use the form above to post a job.</p>';
     return;
   }
 
@@ -156,39 +205,172 @@ function renderProfessionalView(jobs) {
     const div = document.createElement('div');
     div.className = 'job-card';
 
+    const stepInfo = STEPS_MAP[job.status] || { step: '-', label: job.status };
     let actionHtml = '';
-    if (job.status === 'PAID_TO_PLATFORM') {
-      actionHtml = `
-        <button class="btn btn-success" onclick="transferToProfessional('${job.id}')">
-          🤝 Agree & Get Paid (Receive ¥${job.amount.toLocaleString()})
-        </button>
-      `;
-    } else if (job.status === 'PAID_TO_PROFESSIONAL') {
-      actionHtml = `<span style="color:#16a34a; font-weight:700;">✅ Received ¥${job.amount.toLocaleString()}</span>`;
-    } else {
-      actionHtml = `<span style="color:#94a3b8; font-size:12px;">Waiting for Company Payment</span>`;
+
+    switch (job.status) {
+      case 'JOB_POSTED':
+        actionHtml = '<span class="status-text">Waiting for individual to apply (Step 2).</span>';
+        break;
+      case 'APPLIED':
+        actionHtml = `<button class="btn btn-primary" onclick="clientMakeOffer('${job.id}')">Step 3: Client to offer</button>`;
+        break;
+      case 'OFFERED':
+        actionHtml = '<span class="status-text">Offer sent. Waiting for individual to accept (Step 4).</span>';
+        break;
+      case 'OFFER_ACCEPTED':
+        actionHtml = `<button class="btn btn-success" onclick="clientOpenPaymentModal('${job.id}')">Step 5: Client to pay fee (¥${job.amount.toLocaleString()} JPY to DMM)</button>`;
+        break;
+      case 'FEE_PAID_TO_DMM':
+        actionHtml = '<span class="status-text text-green">Fee secured in DMM. Waiting for individual to start working (Step 6).</span>';
+        break;
+      case 'WORKING':
+        actionHtml = '<span class="status-text">Individual is working (Step 6). Waiting for deliverables.</span>';
+        break;
+      case 'DELIVERABLES_SUBMITTED':
+        actionHtml = `
+          <div style="margin-bottom:8px; font-size:12px;"><strong>Deliverables:</strong> ${escapeHtml(job.deliverables)}</div>
+          <button class="btn btn-primary" onclick="clientConfirmDeliverables('${job.id}')">Step 8: Client to confirm the deliverables</button>
+        `;
+        break;
+      case 'DELIVERABLES_CONFIRMED':
+        actionHtml = `<button class="btn btn-success" onclick="dmmSettleAndPayout('${job.id}')">Step 9: DMM platform to transfer & payout (after 5% commission)</button>`;
+        break;
+      case 'COMPLETED':
+        actionHtml = `
+          <div class="completed-box">
+            ✅ <strong>Workflow Complete</strong><br>
+            • Total Paid: ¥${job.amount.toLocaleString()} JPY<br>
+            • DMM Commission (5%): ¥${(job.dmmCommission || 0).toLocaleString()} JPY<br>
+            • Transferred to Individual: ¥${(job.netPayout || 0).toLocaleString()} JPY (Transfer: <code>${job.transferId || '-'}</code>)<br>
+            • Bank Payout: <code>${job.payoutId || '-'}</code> (${job.payoutStatus || 'completed'})
+          </div>
+        `;
+        break;
     }
 
     div.innerHTML = `
-      <div>
-        <strong style="font-size:15px;">${job.title}</strong>
-        <div style="font-size:13px; color:#64748b; margin-top:4px;">
-          Amount: <strong>¥${job.amount.toLocaleString()} JPY</strong> | Status: <span class="status-badge ${job.status}">${job.status}</span>
+      <div class="job-header">
+        <div>
+          <strong>${escapeHtml(job.title)}</strong>
+          <div class="job-meta">ID: ${job.id} • Total Fee: ¥${job.amount.toLocaleString()} JPY</div>
         </div>
+        <span class="step-badge">${stepInfo.label}</span>
       </div>
-      <div>${actionHtml}</div>
+      <div class="job-action">${actionHtml}</div>
     `;
+
     container.appendChild(div);
   });
 }
 
-// Action: Professional gets paid (The Separate Transfer)
-window.transferToProfessional = async function(jobId) {
+// TAB 2: INDIVIDUAL VIEW (Steps 2, 4, 6, 7)
+function renderIndividualView(jobs) {
+  const container = document.getElementById('individualJobsList');
+  if (!container) return;
+
+  if (jobs.length === 0) {
+    container.innerHTML = '<p style="color:#64748b; font-size:13px;">No jobs available.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  jobs.forEach(job => {
+    const div = document.createElement('div');
+    div.className = 'job-card';
+
+    const stepInfo = STEPS_MAP[job.status] || { step: '-', label: job.status };
+    let actionHtml = '';
+
+    switch (job.status) {
+      case 'JOB_POSTED':
+        actionHtml = `<button class="btn btn-primary" onclick="individualApply('${job.id}')">Step 2: Individual to apply</button>`;
+        break;
+      case 'APPLIED':
+        actionHtml = '<span class="status-text">Application submitted. Waiting for client offer (Step 3).</span>';
+        break;
+      case 'OFFERED':
+        actionHtml = `<button class="btn btn-success" onclick="individualAcceptOffer('${job.id}')">Step 4: Individual to accept the offer</button>`;
+        break;
+      case 'OFFER_ACCEPTED':
+        actionHtml = '<span class="status-text">Offer accepted. Waiting for client to pay fee to DMM (Step 5).</span>';
+        break;
+      case 'FEE_PAID_TO_DMM':
+        actionHtml = `<button class="btn btn-primary" onclick="individualStartWorking('${job.id}')">Step 6: Individual to start working</button>`;
+        break;
+      case 'WORKING':
+        actionHtml = `<button class="btn btn-success" onclick="individualOpenDeliverablesModal('${job.id}')">Step 7: Individual to submit the deliverables</button>`;
+        break;
+      case 'DELIVERABLES_SUBMITTED':
+        actionHtml = '<span class="status-text">Deliverables submitted. Waiting for client confirmation (Step 8).</span>';
+        break;
+      case 'DELIVERABLES_CONFIRMED':
+        actionHtml = '<span class="status-text">Deliverables confirmed. DMM is processing transfer & payout (Step 9).</span>';
+        break;
+      case 'COMPLETED':
+        actionHtml = `
+          <div class="completed-box">
+            🎉 <strong>Fee Received!</strong><br>
+            • Net Payout (after 5% DMM commission): <strong>¥${(job.netPayout || 0).toLocaleString()} JPY</strong><br>
+            • Transferred to Stripe Account: <code>${job.transferId || '-'}</code><br>
+            • Paid out to Bank: <code>${job.payoutId || '-'}</code> (${job.payoutStatus || 'completed'})
+          </div>
+        `;
+        break;
+    }
+
+    div.innerHTML = `
+      <div class="job-header">
+        <div>
+          <strong>${escapeHtml(job.title)}</strong>
+          <div class="job-meta">Total Fee: ¥${job.amount.toLocaleString()} JPY • Net Payout (95%): ¥${(job.netPayout || Math.round(job.amount * 0.95)).toLocaleString()} JPY</div>
+        </div>
+        <span class="step-badge">${stepInfo.label}</span>
+      </div>
+      <div class="job-action">${actionHtml}</div>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+// TAB 3: DMM OPERATIONS VIEW (Step 9 Ledger)
+function renderOperationsView(jobs) {
+  const tbody = document.getElementById('operationsTableBody');
+  if (!tbody) return;
+
+  if (jobs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#64748b; padding:16px;">No jobs recorded.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  jobs.forEach(job => {
+    const tr = document.createElement('tr');
+    const stepInfo = STEPS_MAP[job.status] || { step: '-', label: job.status };
+
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(job.title)}</strong><br><small style="color:#64748b;">${job.id}</small></td>
+      <td><strong>¥${job.amount.toLocaleString()} JPY</strong></td>
+      <td class="text-gold">¥${(job.dmmCommission || Math.round(job.amount * 0.05)).toLocaleString()} JPY</td>
+      <td class="text-green">¥${(job.netPayout || (job.amount - Math.round(job.amount * 0.05))).toLocaleString()} JPY</td>
+      <td><code>${job.chargeId || '-'}</code></td>
+      <td><code>${job.transferId || '-'}</code></td>
+      <td><code>${job.payoutId || '-'}</code></td>
+      <td><span class="step-badge">${stepInfo.label}</span></td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+// Step 2: Individual to apply
+window.individualApply = async function(id) {
   try {
-    const res = await fetch(`/api/jobs/${jobId}/transfer-to-professional`, { method: 'POST' });
+    const res = await fetch(`/api/jobs/${id}/apply`, { method: 'POST' });
     const data = await res.json();
     if (data.success) {
-      showToast('🎉 Separate Transfer Succeeded! Money sent to Professional.');
+      showToast('Step 2 Complete: Individual applied.');
       await refreshData();
     } else {
       showToast('Error: ' + data.error);
@@ -198,36 +380,134 @@ window.transferToProfessional = async function(jobId) {
   }
 };
 
-// 3. DMM Operations View
-function renderOperationsView(jobs) {
-  const tbody = document.getElementById('operationsTableBody');
-  if (!tbody) return;
-
-  if (!jobs || jobs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:16px;">No transactions yet.</td></tr>';
-    return;
+// Step 3: Client to offer
+window.clientMakeOffer = async function(id) {
+  try {
+    const res = await fetch(`/api/jobs/${id}/offer`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Step 3 Complete: Client made offer.');
+      await refreshData();
+    } else {
+      showToast('Error: ' + data.error);
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message);
   }
+};
 
-  tbody.innerHTML = '';
-  jobs.forEach(job => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>
-        <strong>${job.title}</strong><br>
-        <small style="color:#64748b;">${job.id}</small>
-      </td>
-      <td><strong>¥${job.amount.toLocaleString()} JPY</strong></td>
-      <td><span class="status-badge ${job.status}">${job.status}</span></td>
-      <td><code>${job.chargeId || (job.status === 'AWAITING_PAYMENT' ? 'Pending Payment' : 'Card Paid')}</code></td>
-      <td><code>${job.transferId || (job.status === 'PAID_TO_PLATFORM' ? 'Held in DMM (Not Transferred)' : (job.status === 'AWAITING_PAYMENT' ? '-' : 'Transferred'))}</code></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+// Step 4: Individual to accept the offer
+window.individualAcceptOffer = async function(id) {
+  try {
+    const res = await fetch(`/api/jobs/${id}/accept-offer`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Step 4 Complete: Individual accepted the offer.');
+      await refreshData();
+    } else {
+      showToast('Error: ' + data.error);
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+};
+
+// Step 5: Client opens payment modal
+window.clientOpenPaymentModal = async function(id) {
+  activePaymentJobId = id;
+  const job = latestJobs.find(j => j.id === id);
+  if (!job) return;
+
+  document.getElementById('payJobTitle').textContent = job.title;
+  document.getElementById('payJobAmount').textContent = `¥${job.amount.toLocaleString()} JPY`;
+  document.getElementById('paymentModal').classList.remove('hidden');
+
+  try {
+    const res = await fetch(`/api/jobs/${id}/create-payment-intent`, { method: 'POST' });
+    const data = await res.json();
+    if (data.clientSecret && stripe) {
+      currentClientSecret = data.clientSecret;
+      elements = stripe.elements({ clientSecret: currentClientSecret });
+      const paymentElement = elements.create('payment');
+      const mount = document.getElementById('stripePaymentElement');
+      mount.innerHTML = '';
+      paymentElement.mount('#stripePaymentElement');
+    }
+  } catch (err) {
+    console.warn('Elements mount notice:', err.message);
+  }
+};
+
+// Step 6: Individual to start working
+window.individualStartWorking = async function(id) {
+  try {
+    const res = await fetch(`/api/jobs/${id}/start-working`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Step 6 Complete: Individual started working.');
+      await refreshData();
+    } else {
+      showToast('Error: ' + data.error);
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+};
+
+// Step 7: Individual opens deliverables modal
+window.individualOpenDeliverablesModal = function(id) {
+  document.getElementById('deliverablesJobId').value = id;
+  document.getElementById('deliverablesContent').value = '';
+  document.getElementById('deliverablesModal').classList.remove('hidden');
+};
+
+// Step 8: Client to confirm the deliverables
+window.clientConfirmDeliverables = async function(id) {
+  try {
+    const res = await fetch(`/api/jobs/${id}/confirm-deliverables`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Step 8 Complete: Client confirmed the deliverables.');
+      await refreshData();
+    } else {
+      showToast('Error: ' + data.error);
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+};
+
+// Step 9: DMM platform to transfer & payout after deducting 5% commission
+window.dmmSettleAndPayout = async function(id) {
+  try {
+    showToast('Processing Step 9: Transferring to Stripe & paying out to bank...');
+    const res = await fetch(`/api/jobs/${id}/settle-and-payout`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Step 9 Complete: 5% DMM commission deducted, fee transferred and paid out.');
+      await refreshData();
+    } else {
+      showToast('Error: ' + data.error);
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+};
 
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.remove('hidden');
   setTimeout(() => t.classList.add('hidden'), 4000);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, m => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[m]));
 }
