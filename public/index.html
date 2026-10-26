@@ -120,6 +120,45 @@
 
     <!-- TAB 2: INDIVIDUAL VIEW -->
     <section id="view-individual" class="tab-content">
+      <!-- PoC: Personnel Verification & Bank Registration -->
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header-flex">
+          <div>
+            <h2>Personnel Verification & Bank Registration (Stripe Connect)</h2>
+            <p class="desc">Verify identity (KYC) and register bank account with Stripe before receiving project payouts.</p>
+          </div>
+          <div id="kycOverallBadge" class="status-pill status-unverified">Checking...</div>
+        </div>
+
+        <div class="kyc-grid">
+          <div class="kyc-item">
+            <span class="kyc-label">Stripe Connected Account</span>
+            <code id="kycAccountId">-</code>
+          </div>
+          <div class="kyc-item">
+            <span class="kyc-label">Personnel Identity (KYC)</span>
+            <div id="kycIdentityStatus"><span class="badge-tag">Loading...</span></div>
+          </div>
+          <div class="kyc-item">
+            <span class="kyc-label">Registered Bank Account</span>
+            <div id="kycBankStatus"><span class="badge-tag">Loading...</span></div>
+          </div>
+          <div class="kyc-item">
+            <span class="kyc-label">Stripe Payout Capability</span>
+            <div id="kycPayoutStatus"><span class="badge-tag">Loading...</span></div>
+          </div>
+        </div>
+
+        <div class="kyc-actions">
+          <button type="button" class="btn btn-primary" id="btnStripeOnboarding">
+            🔗 Open Stripe Hosted Verification & Bank Setup
+          </button>
+          <button type="button" class="btn btn-secondary" id="btnSimulateKyc">
+            ⚡ Instant Verify with Test KYC (Demo Mode)
+          </button>
+        </div>
+      </div>
+
       <div class="card">
         <h2>Individual Jobs & Actions</h2>
         <p class="desc">Apply (Step 2), accept offers (Step 4), start working (Step 6), and submit deliverables (Step 7).</p>

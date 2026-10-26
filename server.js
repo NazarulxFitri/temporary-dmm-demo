@@ -60,6 +60,11 @@ app.get('/api/overview', async (req, res) => {
 
         const acc = await stripe.accounts.retrieve(CONNECTED_ACCOUNT_ID);
         const bank = acc.external_accounts?.data?.[0];
+        connectedAccount.detailsSubmitted = acc.details_submitted || false;
+        connectedAccount.payoutsEnabled = acc.payouts_enabled || false;
+        connectedAccount.verificationStatus = acc.individual?.verification?.status || 'unverified';
+        connectedAccount.personnelName = [acc.individual?.last_name, acc.individual?.first_name].filter(Boolean).join(' ') || acc.business_profile?.name || '';
+        connectedAccount.requirements = acc.requirements?.currently_due || [];
         if (bank) {
           connectedAccount.bankName = bank.bank_name || '';
           connectedAccount.bankLast4 = bank.last4 || '';
@@ -87,6 +92,73 @@ app.get('/api/overview', async (req, res) => {
       workerAvail,
       workerPend,
       jobs: db.jobs
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PoC Onboarding: Generate Stripe Connect Hosted Link for Bank Registration & Personnel Verification
+app.post('/api/individual/onboarding-link', async (req, res) => {
+  try {
+    if (!isKeyConfigured) return res.status(400).json({ error: 'Stripe keys not configured' });
+    const host = req.get('host');
+    const protocol = req.protocol;
+
+    const link = await stripe.accountLinks.create({
+      account: CONNECTED_ACCOUNT_ID,
+      refresh_url: `${protocol}://${host}/?onboarding=refresh`,
+      return_url: `${protocol}://${host}/?onboarding=complete`,
+      type: 'account_onboarding'
+    });
+
+    res.json({ success: true, url: link.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PoC Onboarding: Simulate Instant Identity Verification in Test Mode via Stripe Files API
+app.post('/api/individual/simulate-verification', async (req, res) => {
+  try {
+    if (!isKeyConfigured) return res.status(400).json({ error: 'Stripe keys not configured' });
+
+    // Check current account status
+    const currentAcc = await stripe.accounts.retrieve(CONNECTED_ACCOUNT_ID);
+    if (currentAcc.individual?.verification?.status === 'verified') {
+      return res.json({
+        success: true,
+        message: 'Account is already verified with Stripe.',
+        verificationStatus: 'verified',
+        payoutsEnabled: currentAcc.payouts_enabled,
+        detailsSubmitted: currentAcc.details_submitted
+      });
+    }
+
+    // If not verified yet, upload valid test JPEG buffer for identity document
+    const validJpeg = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=", "base64");
+    const file = await stripe.files.create({
+      purpose: "identity_document",
+      file: {
+        data: validJpeg,
+        name: "personnel_verification_test.jpg",
+        type: "image/jpeg"
+      }
+    });
+
+    const updated = await stripe.accounts.update(CONNECTED_ACCOUNT_ID, {
+      individual: {
+        verification: {
+          document: { front: file.id }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      verificationStatus: updated.individual?.verification?.status || 'verified',
+      payoutsEnabled: updated.payouts_enabled,
+      detailsSubmitted: updated.details_submitted
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

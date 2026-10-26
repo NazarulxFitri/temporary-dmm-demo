@@ -446,6 +446,70 @@ body {
 
 .hidden { display: none !important; }
 
+/* KYC & Onboarding Card */
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-verified {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-unverified {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.kyc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.kyc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kyc-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.badge-tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.kyc-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 800px) {
   .header { flex-direction: column; gap: 12px; }
   .balances-bar { width: 100%; justify-content: space-between; }

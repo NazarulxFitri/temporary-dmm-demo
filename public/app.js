@@ -22,6 +22,10 @@ const STEPS_MAP = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  if (window.location.search.includes('onboarding=complete')) {
+    showToast('✅ Stripe Onboarding complete! Bank & KYC verified.');
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
   setupTabs();
   setupEvents();
   await refreshData();
@@ -133,6 +137,54 @@ function setupEvents() {
       showToast('Error: ' + err.message);
     }
   });
+
+  // PoC: Open Stripe Hosted Onboarding Link (Bank & Personnel Verification)
+  const btnOnboarding = document.getElementById('btnStripeOnboarding');
+  if (btnOnboarding) {
+    btnOnboarding.addEventListener('click', async () => {
+      try {
+        btnOnboarding.disabled = true;
+        showToast('Generating secure Stripe Hosted Onboarding link...');
+        const res = await fetch('/api/individual/onboarding-link', { method: 'POST' });
+        const data = await res.json();
+        btnOnboarding.disabled = false;
+
+        if (data.success && data.url) {
+          window.open(data.url, '_blank');
+          showToast('🔗 Opened Stripe Hosted Verification & Bank Setup page.');
+        } else {
+          showToast('Error: ' + (data.error || 'Could not generate link'));
+        }
+      } catch (err) {
+        btnOnboarding.disabled = false;
+        showToast('Error: ' + err.message);
+      }
+    });
+  }
+
+  // PoC: Instant Verify with Test KYC (Demo Mode)
+  const btnSimulate = document.getElementById('btnSimulateKyc');
+  if (btnSimulate) {
+    btnSimulate.addEventListener('click', async () => {
+      try {
+        btnSimulate.disabled = true;
+        showToast('Submitting identity verification document to Stripe...');
+        const res = await fetch('/api/individual/simulate-verification', { method: 'POST' });
+        const data = await res.json();
+        btnSimulate.disabled = false;
+
+        if (data.success) {
+          showToast('✅ Personnel Identity Verified with Stripe! Payouts active.');
+          await refreshData();
+        } else {
+          showToast('Error: ' + data.error);
+        }
+      } catch (err) {
+        btnSimulate.disabled = false;
+        showToast('Error: ' + err.message);
+      }
+    });
+  }
 }
 
 // Fetch balances and render views
@@ -156,6 +208,44 @@ async function refreshData() {
       document.getElementById('workerBank').textContent = `${data.connectedAccount.bankName} ••••${data.connectedAccount.bankLast4}`;
     } else {
       document.getElementById('workerBank').textContent = 'None registered';
+    }
+
+    // Personnel Verification & Bank Registration Card
+    const acc = data.connectedAccount || {};
+    const kycAccountIdEl = document.getElementById('kycAccountId');
+    if (kycAccountIdEl) kycAccountIdEl.textContent = data.connectedAccountId || '-';
+
+    const isVerified = acc.verificationStatus === 'verified' && acc.payoutsEnabled;
+    const overallBadge = document.getElementById('kycOverallBadge');
+    if (overallBadge) {
+      if (isVerified) {
+        overallBadge.className = 'status-pill status-verified';
+        overallBadge.textContent = '✅ Verified & Payouts Active';
+      } else {
+        overallBadge.className = 'status-pill status-unverified';
+        overallBadge.textContent = '⚠️ Action Required';
+      }
+    }
+
+    const idEl = document.getElementById('kycIdentityStatus');
+    if (idEl) {
+      idEl.innerHTML = acc.verificationStatus === 'verified'
+        ? '<span class="text-green">Verified (Document Approved) ✅</span>'
+        : '<span class="text-gold">Pending Document Upload ⚠️</span>';
+    }
+
+    const bankEl = document.getElementById('kycBankStatus');
+    if (bankEl) {
+      bankEl.innerHTML = acc.bankName
+        ? `<span class="text-green">${acc.bankName} (Branch ${acc.bankRouting || '0001001'}) ••••${acc.bankLast4} ✅</span>`
+        : '<span class="text-gold">No Bank Registered ⚠️</span>';
+    }
+
+    const payoutEl = document.getElementById('kycPayoutStatus');
+    if (payoutEl) {
+      payoutEl.innerHTML = acc.payoutsEnabled
+        ? '<span class="text-green">Active (Can Receive Payouts) ✅</span>'
+        : '<span class="text-gold">Restricted (Requires KYC & Bank) ⚠️</span>';
     }
 
     renderClientView(latestJobs);
