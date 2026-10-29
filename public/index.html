@@ -154,9 +154,6 @@
           <button type="button" class="btn btn-primary" id="btnEmbeddedOnboarding">
             🖥️ Complete Verification & Onboarding (In-App)
           </button>
-          <button type="button" class="btn btn-secondary" id="btnOpenBankModal">
-            🏦 Register / Change Japanese Bank
-          </button>
         </div>
       </div>
 
@@ -182,57 +179,6 @@
               ⏳ Initializing Stripe Connect Embedded Onboarding...
             </div>
             <div id="embeddedOnboardingContainer"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Option B: Direct Japanese Bank Registration Modal -->
-      <div id="bankModal" class="modal-backdrop hidden">
-        <div class="modal">
-          <div class="modal-header">
-            <h3>Register / Change Japanese Bank Account</h3>
-            <button type="button" class="close-btn" id="btnCloseBankModal">&times;</button>
-          </div>
-          <div class="modal-body">
-            <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
-              Register your Japanese bank account directly via Stripe API to receive net project payouts.
-            </p>
-            <form id="bankRegistrationForm">
-              <div class="field">
-                <label for="bankSelect">Select Bank (Bank Code)</label>
-                <select id="bankSelect" required>
-                  <option value="0001">みずほ銀行 (Mizuho Bank - 0001)</option>
-                  <option value="0005">三菱UFJ銀行 (MUFG Bank - 0005)</option>
-                  <option value="0009">三井住友銀行 (SMBC - 0009)</option>
-                  <option value="0010">りそな銀行 (Resona Bank - 0010)</option>
-                  <option value="9900">ゆうちょ銀行 (Japan Post Bank - 9900)</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <div class="field">
-                  <label for="bankBranchCode">Branch Code (3 digits)</label>
-                  <input type="text" id="bankBranchCode" maxlength="3" placeholder="001" value="001" required>
-                </div>
-                <div class="field">
-                  <label for="bankAccountType">Account Type</label>
-                  <select id="bankAccountType">
-                    <option value="futsu">普通 (Ordinary - Futsu)</option>
-                    <option value="toza">当座 (Current - Toza)</option>
-                  </select>
-                </div>
-              </div>
-              <div class="field">
-                <label for="bankAccountNumber">Account Number (7 digits)</label>
-                <input type="text" id="bankAccountNumber" maxlength="7" placeholder="0001234" value="0001234" required>
-                <small style="color: #64748b; font-size: 11px;">In test mode, Stripe accepts test numbers like 0001234.</small>
-              </div>
-              <div class="field">
-                <label for="bankAccountHolder">Account Holder Name (Katakana)</label>
-                <input type="text" id="bankAccountHolder" placeholder="ヤマダ タロウ" value="ヤマダ タロウ" required>
-                <small style="color: #64748b; font-size: 11px;">Must be in Katakana to comply with Japan Zengin banking network.</small>
-              </div>
-              <button type="submit" class="btn btn-primary btn-block" id="btnSubmitBank">Save Bank Account to Stripe</button>
-            </form>
           </div>
         </div>
       </div>

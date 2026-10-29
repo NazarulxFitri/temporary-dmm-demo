@@ -158,62 +158,6 @@ function setupEvents() {
       refreshData();
     });
   }
-
-  // Direct Japanese Bank Registration Modal (In-App)
-  const btnOpenBank = document.getElementById('btnOpenBankModal');
-  const bankModal = document.getElementById('bankModal');
-  const btnCloseBank = document.getElementById('btnCloseBankModal');
-  const bankForm = document.getElementById('bankRegistrationForm');
-
-  if (btnOpenBank && bankModal) {
-    btnOpenBank.addEventListener('click', () => {
-      bankModal.classList.remove('hidden');
-    });
-  }
-
-  if (btnCloseBank && bankModal) {
-    btnCloseBank.addEventListener('click', () => {
-      bankModal.classList.add('hidden');
-    });
-  }
-
-  if (bankForm) {
-    bankForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const submitBtn = document.getElementById('btnSubmitBank');
-      try {
-        if (submitBtn) submitBtn.disabled = true;
-        showToast('Registering Japanese bank account with Stripe...');
-
-        const payload = {
-          bankCode: document.getElementById('bankSelect').value,
-          branchCode: document.getElementById('bankBranchCode').value.trim(),
-          accountType: document.getElementById('bankAccountType').value,
-          accountNumber: document.getElementById('bankAccountNumber').value.trim(),
-          accountHolderName: document.getElementById('bankAccountHolder').value.trim()
-        };
-
-        const res = await fetch('/api/individual/register-bank', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (submitBtn) submitBtn.disabled = false;
-
-        if (data.success) {
-          showToast(`✅ Bank Registered: ${data.bank.bankName} ••••${data.bank.last4}`);
-          bankModal.classList.add('hidden');
-          await refreshData();
-        } else {
-          showToast('Bank Registration Error: ' + (data.error || 'Failed to attach bank account'));
-        }
-      } catch (err) {
-        if (submitBtn) submitBtn.disabled = false;
-        showToast('Error: ' + err.message);
-      }
-    });
-  }
 }
 
 // Option B: Mount Stripe Connect Embedded Onboarding Component
