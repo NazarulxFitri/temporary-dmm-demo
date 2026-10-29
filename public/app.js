@@ -8,6 +8,8 @@ let elements = null;
 let currentClientSecret = null;
 let activePaymentJobId = null;
 let latestJobs = [];
+let stripePublishableKey = null;
+let stripeConnectInstance = null;
 
 const STEPS_MAP = {
   JOB_POSTED: { step: 1, label: 'Step 1: Client posted job' },
@@ -162,6 +164,81 @@ function setupEvents() {
     });
   }
 
+  // Option B: Open Embedded Stripe Onboarding Modal (In-App)
+  const btnEmbedded = document.getElementById('btnEmbeddedOnboarding');
+  const embeddedModal = document.getElementById('embeddedOnboardingModal');
+  const btnCloseEmbedded = document.getElementById('btnCloseEmbeddedModal');
+
+  if (btnEmbedded && embeddedModal) {
+    btnEmbedded.addEventListener('click', () => {
+      embeddedModal.classList.remove('hidden');
+      initOrMountEmbeddedOnboarding();
+    });
+  }
+
+  if (btnCloseEmbedded && embeddedModal) {
+    btnCloseEmbedded.addEventListener('click', () => {
+      embeddedModal.classList.add('hidden');
+      refreshData();
+    });
+  }
+
+  // Option B: Direct Japanese Bank Registration Modal (In-App)
+  const btnOpenBank = document.getElementById('btnOpenBankModal');
+  const bankModal = document.getElementById('bankModal');
+  const btnCloseBank = document.getElementById('btnCloseBankModal');
+  const bankForm = document.getElementById('bankRegistrationForm');
+
+  if (btnOpenBank && bankModal) {
+    btnOpenBank.addEventListener('click', () => {
+      bankModal.classList.remove('hidden');
+    });
+  }
+
+  if (btnCloseBank && bankModal) {
+    btnCloseBank.addEventListener('click', () => {
+      bankModal.classList.add('hidden');
+    });
+  }
+
+  if (bankForm) {
+    bankForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('btnSubmitBank');
+      try {
+        if (submitBtn) submitBtn.disabled = true;
+        showToast('Registering Japanese bank account with Stripe...');
+
+        const payload = {
+          bankCode: document.getElementById('bankSelect').value,
+          branchCode: document.getElementById('bankBranchCode').value.trim(),
+          accountType: document.getElementById('bankAccountType').value,
+          accountNumber: document.getElementById('bankAccountNumber').value.trim(),
+          accountHolderName: document.getElementById('bankAccountHolder').value.trim()
+        };
+
+        const res = await fetch('/api/individual/register-bank', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (submitBtn) submitBtn.disabled = false;
+
+        if (data.success) {
+          showToast(`✅ Bank Registered: ${data.bank.bankName} ••••${data.bank.last4}`);
+          bankModal.classList.add('hidden');
+          await refreshData();
+        } else {
+          showToast('Bank Registration Error: ' + (data.error || 'Failed to attach bank account'));
+        }
+      } catch (err) {
+        if (submitBtn) submitBtn.disabled = false;
+        showToast('Error: ' + err.message);
+      }
+    });
+  }
+
   // PoC: Instant Verify with Test KYC (Demo Mode)
   const btnSimulate = document.getElementById('btnSimulateKyc');
   if (btnSimulate) {
@@ -187,6 +264,62 @@ function setupEvents() {
   }
 }
 
+// Option B: Mount Stripe Connect Embedded Onboarding Component
+async function initOrMountEmbeddedOnboarding() {
+  const container = document.getElementById('embeddedOnboardingContainer');
+  const loading = document.getElementById('embeddedOnboardingLoading');
+  if (!container) return;
+
+  container.innerHTML = '';
+  if (loading) loading.classList.remove('hidden');
+
+  try {
+    if (!window.StripeConnect) {
+      throw new Error('Stripe Connect JS library is loading or blocked. Please refresh the page.');
+    }
+
+    if (!stripePublishableKey) {
+      const overviewRes = await fetch('/api/overview');
+      const overviewData = await overviewRes.json();
+      stripePublishableKey = overviewData.publishableKey;
+    }
+
+    if (!stripeConnectInstance) {
+      stripeConnectInstance = window.StripeConnect.init({
+        publishableKey: stripePublishableKey,
+        fetchClientSecret: async () => {
+          const res = await fetch('/api/individual/embedded-onboarding-session', { method: 'POST' });
+          const data = await res.json();
+          if (!data.success || !data.clientSecret) {
+            throw new Error(data.error || 'Failed to fetch account session client secret');
+          }
+          return data.clientSecret;
+        },
+        appearance: {
+          variables: {
+            colorPrimary: '#2563eb',
+            colorBackground: '#ffffff',
+            colorText: '#0f172a',
+            borderRadius: '8px'
+          }
+        }
+      });
+    }
+
+    const onboardingComponent = stripeConnectInstance.create('account-onboarding');
+    onboardingComponent.setOnExit(async () => {
+      document.getElementById('embeddedOnboardingModal')?.classList.add('hidden');
+      showToast('Exited In-App Onboarding. Updating live status...');
+      await refreshData();
+    });
+
+    if (loading) loading.classList.add('hidden');
+    container.appendChild(onboardingComponent);
+  } catch (err) {
+    if (loading) loading.innerHTML = `<span style="color:#ef4444;">Failed to load in-app onboarding: ${escapeHtml(err.message)}</span>`;
+  }
+}
+
 // Fetch balances and render views
 async function refreshData() {
   try {
@@ -194,8 +327,11 @@ async function refreshData() {
     const data = await res.json();
     latestJobs = data.jobs || [];
 
-    if (data.publishableKey && !stripe) {
-      stripe = Stripe(data.publishableKey);
+    if (data.publishableKey) {
+      stripePublishableKey = data.publishableKey;
+      if (!stripe) {
+        stripe = Stripe(data.publishableKey);
+      }
     }
 
     // Top Balances

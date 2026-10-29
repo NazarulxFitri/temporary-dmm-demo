@@ -118,6 +118,65 @@ app.post('/api/individual/onboarding-link', async (req, res) => {
   }
 });
 
+// Option B: Generate Stripe Connect Embedded Onboarding AccountSession (In-App)
+app.post('/api/individual/embedded-onboarding-session', async (req, res) => {
+  try {
+    if (!isKeyConfigured) return res.status(400).json({ error: 'Stripe keys not configured' });
+
+    const accountSession = await stripe.accountSessions.create({
+      account: CONNECTED_ACCOUNT_ID,
+      components: {
+        account_onboarding: { enabled: true },
+        account_management: { enabled: true }
+      }
+    });
+
+    res.json({ success: true, clientSecret: accountSession.client_secret });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Option B: Register or Update Japanese Bank Account Directly In-App via Stripe API
+app.post('/api/individual/register-bank', async (req, res) => {
+  try {
+    if (!isKeyConfigured) return res.status(400).json({ error: 'Stripe keys not configured' });
+    const { bankCode, branchCode, accountNumber, accountHolderName, accountType } = req.body;
+
+    if (!bankCode || !branchCode || !accountNumber || !accountHolderName) {
+      return res.status(400).json({ error: 'Please provide Bank Code, Branch Code, Account Number, and Katakana Name.' });
+    }
+
+    const routingNumber = `${bankCode.toString().padStart(4, '0')}${branchCode.toString().padStart(3, '0')}`;
+    const paddedAccountNumber = accountNumber.toString().padStart(7, '0');
+
+    const bankAccount = await stripe.accounts.createExternalAccount(CONNECTED_ACCOUNT_ID, {
+      external_account: {
+        object: 'bank_account',
+        country: 'JP',
+        currency: 'jpy',
+        routing_number: routingNumber,
+        account_number: paddedAccountNumber,
+        account_holder_name: accountHolderName,
+        account_type: accountType || 'futsu'
+      },
+      default_for_currency: true
+    });
+
+    res.json({
+      success: true,
+      bank: {
+        id: bankAccount.id,
+        bankName: bankAccount.bank_name,
+        last4: bankAccount.last4,
+        routingNumber: bankAccount.routing_number
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PoC Onboarding: Simulate Instant Identity Verification in Test Mode via Stripe Files API
 app.post('/api/individual/simulate-verification', async (req, res) => {
   try {

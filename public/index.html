@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://js.stripe.com/v3/"></script>
+  <script src="https://connect-js.stripe.com/v1.0/connect.js"></script>
 </head>
 <body>
   <div class="container">
@@ -150,11 +151,17 @@
         </div>
 
         <div class="kyc-actions">
-          <button type="button" class="btn btn-primary" id="btnStripeOnboarding">
-            🔗 Open Stripe Hosted Verification & Bank Setup
+          <button type="button" class="btn btn-primary" id="btnEmbeddedOnboarding">
+            🖥️ In-App Stripe Onboarding (Option B)
+          </button>
+          <button type="button" class="btn btn-secondary" id="btnOpenBankModal">
+            🏦 Register / Change Bank Account
           </button>
           <button type="button" class="btn btn-secondary" id="btnSimulateKyc">
             ⚡ Instant Verify with Test KYC (Demo Mode)
+          </button>
+          <button type="button" class="btn btn-outline" id="btnStripeOnboarding">
+            🔗 External Stripe Link
           </button>
         </div>
       </div>
@@ -164,6 +171,76 @@
         <p class="desc">Apply (Step 2), accept offers (Step 4), start working (Step 6), and submit deliverables (Step 7).</p>
 
         <div id="individualJobsList" class="jobs-list"></div>
+      </div>
+
+      <!-- Option B: Embedded Stripe Onboarding Modal -->
+      <div id="embeddedOnboardingModal" class="modal-backdrop hidden">
+        <div class="modal modal-wide">
+          <div class="modal-header">
+            <h3>Stripe Connect In-App Onboarding (eKYC & Bank Setup)</h3>
+            <button type="button" class="close-btn" id="btnCloseEmbeddedModal">&times;</button>
+          </div>
+          <div class="modal-body" style="padding: 16px;">
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">
+              Complete your Japanese personnel identity verification (eKYC) and bank account registration securely inside DMM.
+            </p>
+            <div id="embeddedOnboardingLoading" style="text-align: center; padding: 24px; color: #2563eb;">
+              ⏳ Initializing Stripe Connect Embedded Onboarding...
+            </div>
+            <div id="embeddedOnboardingContainer"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Option B: Direct Japanese Bank Registration Modal -->
+      <div id="bankModal" class="modal-backdrop hidden">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Register / Change Japanese Bank Account</h3>
+            <button type="button" class="close-btn" id="btnCloseBankModal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+              Register your Japanese bank account directly via Stripe API to receive net project payouts.
+            </p>
+            <form id="bankRegistrationForm">
+              <div class="field">
+                <label for="bankSelect">Select Bank (Bank Code)</label>
+                <select id="bankSelect" required>
+                  <option value="0001">みずほ銀行 (Mizuho Bank - 0001)</option>
+                  <option value="0005">三菱UFJ銀行 (MUFG Bank - 0005)</option>
+                  <option value="0009">三井住友銀行 (SMBC - 0009)</option>
+                  <option value="0010">りそな銀行 (Resona Bank - 0010)</option>
+                  <option value="9900">ゆうちょ銀行 (Japan Post Bank - 9900)</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label for="bankBranchCode">Branch Code (3 digits)</label>
+                  <input type="text" id="bankBranchCode" maxlength="3" placeholder="001" value="001" required>
+                </div>
+                <div class="field">
+                  <label for="bankAccountType">Account Type</label>
+                  <select id="bankAccountType">
+                    <option value="futsu">普通 (Ordinary - Futsu)</option>
+                    <option value="toza">当座 (Current - Toza)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label for="bankAccountNumber">Account Number (7 digits)</label>
+                <input type="text" id="bankAccountNumber" maxlength="7" placeholder="0001234" value="0001234" required>
+                <small style="color: #64748b; font-size: 11px;">In test mode, Stripe accepts test numbers like 0001234.</small>
+              </div>
+              <div class="field">
+                <label for="bankAccountHolder">Account Holder Name (Katakana)</label>
+                <input type="text" id="bankAccountHolder" placeholder="ヤマダ タロウ" value="ヤマダ タロウ" required>
+                <small style="color: #64748b; font-size: 11px;">Must be in Katakana to comply with Japan Zengin banking network.</small>
+              </div>
+              <button type="submit" class="btn btn-primary btn-block" id="btnSubmitBank">Save Bank Account to Stripe</button>
+            </form>
+          </div>
+        </div>
       </div>
 
       <!-- Step 7 Deliverables Modal -->

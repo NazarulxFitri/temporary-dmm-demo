@@ -334,6 +334,49 @@ body {
   overflow: hidden;
 }
 
+.modal-wide {
+  max-width: 760px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-wide .modal-body {
+  overflow-y: auto;
+  max-height: calc(85vh - 70px);
+}
+
+#embeddedOnboardingContainer {
+  min-height: 400px;
+  width: 100%;
+}
+
+.field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: #f8fafc;
+}
+
+.field select:focus {
+  border-color: var(--primary);
+  background: #fff;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-outline:hover {
+  background: #f1f5f9;
+}
+
 .modal-header {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
