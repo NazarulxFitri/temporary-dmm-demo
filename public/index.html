@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DMM AI Talent — One-off Project Payment Workflow</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://js.stripe.com/v3/"></script>
   <script src="https://connect-js.stripe.com/v1.0/connect.js"></script>
 </head>
+
 <body>
   <div class="container">
     <!-- Header with Live Balances -->
@@ -79,7 +83,8 @@
             <div class="fee-breakdown" id="feeBreakdown">
               <div><span>Total Fee Paid by Client:</span> <strong id="calcTotal">¥0 JPY</strong></div>
               <div><span>DMM Commission (5%):</span> <strong class="text-gold" id="calcDmm">- ¥0 JPY</strong></div>
-              <div><span>Net Payout to Individual (95%):</span> <strong class="text-green" id="calcNet">¥0 JPY</strong></div>
+              <div><span>Net Payout to Individual (95%):</span> <strong class="text-green" id="calcNet">¥0 JPY</strong>
+              </div>
             </div>
 
             <button type="submit" class="btn btn-primary btn-block">Post Job</button>
@@ -89,7 +94,8 @@
         <!-- Client Jobs & Actions (Steps 3, 5, 8) -->
         <div class="card">
           <h2>Client Jobs & Actions</h2>
-          <p class="desc">Manage posted jobs: make offers (Step 3), pay fee to DMM (Step 5), and confirm deliverables (Step 8).</p>
+          <p class="desc">Manage posted jobs: make offers (Step 3), pay fee to DMM (Step 5), and confirm deliverables
+            (Step 8).</p>
 
           <div id="clientJobsList" class="jobs-list"></div>
         </div>
@@ -103,7 +109,8 @@
             <button type="button" class="close-btn" id="btnClosePayModal">&times;</button>
           </div>
           <div class="modal-body">
-            <p style="margin-bottom:12px; font-size:13px; color:#475569;">Payment goes to <strong>DMM's Stripe account</strong> and is held until deliverables are confirmed.</p>
+            <p style="margin-bottom:12px; font-size:13px; color:#475569;">Payment goes to <strong>DMM's Stripe
+                account</strong> and is held until deliverables are confirmed.</p>
             <div class="payment-info">
               <div>Job: <strong id="payJobTitle">-</strong></div>
               <div>Fee: <strong id="payJobAmount">-</strong></div>
@@ -126,7 +133,8 @@
         <div class="card-header-flex">
           <div>
             <h2>Personnel Verification & Bank Registration (Stripe Connect)</h2>
-            <p class="desc">Verify identity (KYC) and register bank account with Stripe before receiving project payouts.</p>
+            <p class="desc">Verify identity (KYC) and register bank account with Stripe before receiving project
+              payouts.</p>
           </div>
           <div id="kycOverallBadge" class="status-pill status-unverified">Checking...</div>
         </div>
@@ -159,7 +167,8 @@
 
       <div class="card">
         <h2>Individual Jobs & Actions</h2>
-        <p class="desc">Apply (Step 2), accept offers (Step 4), start working (Step 6), and submit deliverables (Step 7).</p>
+        <p class="desc">Apply (Step 2), accept offers (Step 4), start working (Step 6), and submit deliverables (Step
+          7).</p>
 
         <div id="individualJobsList" class="jobs-list"></div>
       </div>
@@ -173,7 +182,8 @@
           </div>
           <div class="modal-body" style="padding: 16px;">
             <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">
-              Complete your Japanese personnel identity verification (eKYC) and bank account registration securely inside DMM.
+              Complete your Japanese personnel identity verification (eKYC) and bank account registration securely
+              inside DMM.
             </p>
             <div id="embeddedOnboardingLoading" style="text-align: center; padding: 24px; color: #2563eb;">
               ⏳ Initializing Stripe Connect Embedded Onboarding...
@@ -195,7 +205,8 @@
               <input type="hidden" id="deliverablesJobId">
               <div class="field">
                 <label for="deliverablesContent">Deliverables (Description / Links / Notes)</label>
-                <textarea id="deliverablesContent" rows="4" placeholder="Enter deliverables details or links" required></textarea>
+                <textarea id="deliverablesContent" rows="4" placeholder="Enter deliverables details or links"
+                  required></textarea>
               </div>
               <button type="submit" class="btn btn-primary btn-block">Submit Deliverables</button>
             </form>
@@ -208,7 +219,8 @@
     <section id="view-operations" class="tab-content">
       <div class="card">
         <h2>DMM Operations & Transaction Ledger</h2>
-        <p class="desc">Step 9: DMM transfers net fee to individual Stripe account and payouts to bank account after deducting 5% commission.</p>
+        <p class="desc">Step 9: DMM transfers net fee to individual Stripe account and payouts to bank account after
+          deducting 5% commission.</p>
 
         <div class="table-container">
           <table class="table">
@@ -233,4 +245,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>
