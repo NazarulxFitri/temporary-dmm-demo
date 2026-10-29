@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const Stripe = require('stripe');
 
 const app = express();
@@ -14,7 +15,7 @@ const isKeyConfigured = Boolean(
 );
 
 const stripe = Stripe(isKeyConfigured ? process.env.STRIPE_SECRET_KEY : 'sk_test_placeholder');
-const CONNECTED_ACCOUNT_ID = process.env.STRIPE_CONNECTED_ACCOUNT_ID || 'acct_1UQ7GV8sOqKSzA4J';
+let CONNECTED_ACCOUNT_ID = process.env.STRIPE_CONNECTED_ACCOUNT_ID || 'acct_1UQ7GV8sOqKSzA4J';
 const COMMISSION_RATE = parseFloat(process.env.DMM_COMMISSION_PERCENTAGE || '5') / 100;
 
 app.use(cors());
@@ -117,6 +118,34 @@ app.post('/api/individual/embedded-onboarding-session', async (req, res) => {
     });
 
     res.json({ success: true, clientSecret: accountSession.client_secret });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Switch Active Connected Account ID dynamically without restart
+app.post('/api/settings/connected-account', async (req, res) => {
+  try {
+    const { accountId } = req.body;
+    if (!accountId || typeof accountId !== 'string' || !accountId.startsWith('acct_')) {
+      return res.status(400).json({ error: 'Please enter a valid Stripe Connected Account ID (starts with acct_)' });
+    }
+
+    CONNECTED_ACCOUNT_ID = accountId.trim();
+
+    // Persist to .env file as well
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+      let envContent = fs.readFileSync(envPath, 'utf8');
+      if (envContent.includes('STRIPE_CONNECTED_ACCOUNT_ID=')) {
+        envContent = envContent.replace(/STRIPE_CONNECTED_ACCOUNT_ID=.*/, `STRIPE_CONNECTED_ACCOUNT_ID=${CONNECTED_ACCOUNT_ID}`);
+      } else {
+        envContent += `\nSTRIPE_CONNECTED_ACCOUNT_ID=${CONNECTED_ACCOUNT_ID}\n`;
+      }
+      fs.writeFileSync(envPath, envContent);
+    }
+
+    res.json({ success: true, connectedAccountId: CONNECTED_ACCOUNT_ID });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -243,6 +243,35 @@
     </section>
   </div>
 
+  <!-- Floating Settings Button (Fixed Bottom-Right) -->
+  <button type="button" id="btnSettingsToggle" class="floating-settings-btn" title="Switch Connected Account">
+    ⚙️
+  </button>
+
+  <!-- Settings Modal for Switching Connected Account -->
+  <div id="settingsModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>⚙️ Switch Connected Account</h3>
+        <button type="button" class="close-btn" id="btnCloseSettingsModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">
+          Paste a new Stripe Connected Account ID (<code>acct_...</code>) to test onboarding or payouts from scratch without editing files or restarting.
+        </p>
+        <form id="settingsAccountForm">
+          <div class="field">
+            <label for="settingsAccountId">Stripe Connected Account ID</label>
+            <input type="text" id="settingsAccountId" placeholder="acct_1XXXX..." required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="btnSaveSettings">
+            Save & Reload Page
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 

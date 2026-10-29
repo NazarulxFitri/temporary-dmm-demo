@@ -10,6 +10,7 @@ let activePaymentJobId = null;
 let latestJobs = [];
 let stripePublishableKey = null;
 let stripeConnectInstance = null;
+let currentConnectedAccountId = '';
 
 const STEPS_MAP = {
   JOB_POSTED: { step: 1, label: 'Step 1: Client posted job' },
@@ -158,6 +159,58 @@ function setupEvents() {
       refreshData();
     });
   }
+
+  // Floating Settings Button & Modal (Switch Connected Account)
+  const btnSettings = document.getElementById('btnSettingsToggle');
+  const settingsModal = document.getElementById('settingsModal');
+  const btnCloseSettings = document.getElementById('btnCloseSettingsModal');
+  const settingsForm = document.getElementById('settingsAccountForm');
+  const settingsInput = document.getElementById('settingsAccountId');
+
+  if (btnSettings && settingsModal) {
+    btnSettings.addEventListener('click', () => {
+      if (settingsInput) settingsInput.value = currentConnectedAccountId || '';
+      settingsModal.classList.remove('hidden');
+    });
+  }
+
+  if (btnCloseSettings && settingsModal) {
+    btnCloseSettings.addEventListener('click', () => {
+      settingsModal.classList.add('hidden');
+    });
+  }
+
+  if (settingsForm) {
+    settingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newId = settingsInput.value.trim();
+      if (!newId.startsWith('acct_')) {
+        return showToast('Account ID must start with acct_');
+      }
+
+      const saveBtn = document.getElementById('btnSaveSettings');
+      try {
+        if (saveBtn) saveBtn.disabled = true;
+        showToast('Switching connected account...');
+        const res = await fetch('/api/settings/connected-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accountId: newId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ Account switched! Reloading...');
+          setTimeout(() => window.location.reload(), 400);
+        } else {
+          if (saveBtn) saveBtn.disabled = false;
+          showToast('Error: ' + data.error);
+        }
+      } catch (err) {
+        if (saveBtn) saveBtn.disabled = false;
+        showToast('Error: ' + err.message);
+      }
+    });
+  }
 }
 
 // Option B: Mount Stripe Connect Embedded Onboarding Component
@@ -222,6 +275,7 @@ async function refreshData() {
     const res = await fetch('/api/overview');
     const data = await res.json();
     latestJobs = data.jobs || [];
+    currentConnectedAccountId = data.connectedAccountId || '';
 
     if (data.publishableKey) {
       stripePublishableKey = data.publishableKey;
