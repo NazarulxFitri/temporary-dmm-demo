@@ -62,7 +62,12 @@ app.get('/api/overview', async (req, res) => {
         const bank = acc.external_accounts?.data?.[0];
         connectedAccount.detailsSubmitted = acc.details_submitted || false;
         connectedAccount.payoutsEnabled = acc.payouts_enabled || false;
-        connectedAccount.verificationStatus = acc.individual?.verification?.status || 'unverified';
+
+        // Verified if status is verified OR details submitted with 0 pending requirements and payouts enabled
+        const isVerified = (acc.individual?.verification?.status === 'verified') ||
+                           (acc.details_submitted && (acc.requirements?.currently_due || []).length === 0 && acc.payouts_enabled);
+
+        connectedAccount.verificationStatus = isVerified ? 'verified' : (acc.individual?.verification?.status || 'unverified');
         connectedAccount.personnelName = [acc.individual?.last_name, acc.individual?.first_name].filter(Boolean).join(' ') || acc.business_profile?.name || '';
         connectedAccount.requirements = acc.requirements?.currently_due || [];
         if (bank) {
