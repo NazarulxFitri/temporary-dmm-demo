@@ -140,31 +140,7 @@ function setupEvents() {
     }
   });
 
-  // PoC: Open Stripe Hosted Onboarding Link (Bank & Personnel Verification)
-  const btnOnboarding = document.getElementById('btnStripeOnboarding');
-  if (btnOnboarding) {
-    btnOnboarding.addEventListener('click', async () => {
-      try {
-        btnOnboarding.disabled = true;
-        showToast('Generating secure Stripe Hosted Onboarding link...');
-        const res = await fetch('/api/individual/onboarding-link', { method: 'POST' });
-        const data = await res.json();
-        btnOnboarding.disabled = false;
-
-        if (data.success && data.url) {
-          window.open(data.url, '_blank');
-          showToast('🔗 Opened Stripe Hosted Verification & Bank Setup page.');
-        } else {
-          showToast('Error: ' + (data.error || 'Could not generate link'));
-        }
-      } catch (err) {
-        btnOnboarding.disabled = false;
-        showToast('Error: ' + err.message);
-      }
-    });
-  }
-
-  // Option B: Open Embedded Stripe Onboarding Modal (In-App)
+  // In-App Stripe Onboarding Modal
   const btnEmbedded = document.getElementById('btnEmbeddedOnboarding');
   const embeddedModal = document.getElementById('embeddedOnboardingModal');
   const btnCloseEmbedded = document.getElementById('btnCloseEmbeddedModal');
@@ -183,7 +159,7 @@ function setupEvents() {
     });
   }
 
-  // Option B: Direct Japanese Bank Registration Modal (In-App)
+  // Direct Japanese Bank Registration Modal (In-App)
   const btnOpenBank = document.getElementById('btnOpenBankModal');
   const bankModal = document.getElementById('bankModal');
   const btnCloseBank = document.getElementById('btnCloseBankModal');
@@ -234,30 +210,6 @@ function setupEvents() {
         }
       } catch (err) {
         if (submitBtn) submitBtn.disabled = false;
-        showToast('Error: ' + err.message);
-      }
-    });
-  }
-
-  // PoC: Instant Verify with Test KYC (Demo Mode)
-  const btnSimulate = document.getElementById('btnSimulateKyc');
-  if (btnSimulate) {
-    btnSimulate.addEventListener('click', async () => {
-      try {
-        btnSimulate.disabled = true;
-        showToast('Submitting identity verification document to Stripe...');
-        const res = await fetch('/api/individual/simulate-verification', { method: 'POST' });
-        const data = await res.json();
-        btnSimulate.disabled = false;
-
-        if (data.success) {
-          showToast('✅ Personnel Identity Verified with Stripe! Payouts active.');
-          await refreshData();
-        } else {
-          showToast('Error: ' + data.error);
-        }
-      } catch (err) {
-        btnSimulate.disabled = false;
         showToast('Error: ' + err.message);
       }
     });

@@ -98,27 +98,7 @@ app.get('/api/overview', async (req, res) => {
   }
 });
 
-// PoC Onboarding: Generate Stripe Connect Hosted Link for Bank Registration & Personnel Verification
-app.post('/api/individual/onboarding-link', async (req, res) => {
-  try {
-    if (!isKeyConfigured) return res.status(400).json({ error: 'Stripe keys not configured' });
-    const host = req.get('host');
-    const protocol = req.protocol;
-
-    const link = await stripe.accountLinks.create({
-      account: CONNECTED_ACCOUNT_ID,
-      refresh_url: `${protocol}://${host}/?onboarding=refresh`,
-      return_url: `${protocol}://${host}/?onboarding=complete`,
-      type: 'account_onboarding'
-    });
-
-    res.json({ success: true, url: link.url });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Option B: Generate Stripe Connect Embedded Onboarding AccountSession (In-App)
+// Stripe Connect Embedded Onboarding AccountSession (In-App)
 app.post('/api/individual/embedded-onboarding-session', async (req, res) => {
   try {
     if (!isKeyConfigured) return res.status(400).json({ error: 'Stripe keys not configured' });
@@ -137,7 +117,7 @@ app.post('/api/individual/embedded-onboarding-session', async (req, res) => {
   }
 });
 
-// Option B: Register or Update Japanese Bank Account Directly In-App via Stripe API
+// Register or Update Japanese Bank Account Directly In-App via Stripe API
 app.post('/api/individual/register-bank', async (req, res) => {
   try {
     if (!isKeyConfigured) return res.status(400).json({ error: 'Stripe keys not configured' });
@@ -171,53 +151,6 @@ app.post('/api/individual/register-bank', async (req, res) => {
         last4: bankAccount.last4,
         routingNumber: bankAccount.routing_number
       }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// PoC Onboarding: Simulate Instant Identity Verification in Test Mode via Stripe Files API
-app.post('/api/individual/simulate-verification', async (req, res) => {
-  try {
-    if (!isKeyConfigured) return res.status(400).json({ error: 'Stripe keys not configured' });
-
-    // Check current account status
-    const currentAcc = await stripe.accounts.retrieve(CONNECTED_ACCOUNT_ID);
-    if (currentAcc.individual?.verification?.status === 'verified') {
-      return res.json({
-        success: true,
-        message: 'Account is already verified with Stripe.',
-        verificationStatus: 'verified',
-        payoutsEnabled: currentAcc.payouts_enabled,
-        detailsSubmitted: currentAcc.details_submitted
-      });
-    }
-
-    // If not verified yet, upload valid test JPEG buffer for identity document
-    const validJpeg = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=", "base64");
-    const file = await stripe.files.create({
-      purpose: "identity_document",
-      file: {
-        data: validJpeg,
-        name: "personnel_verification_test.jpg",
-        type: "image/jpeg"
-      }
-    });
-
-    const updated = await stripe.accounts.update(CONNECTED_ACCOUNT_ID, {
-      individual: {
-        verification: {
-          document: { front: file.id }
-        }
-      }
-    });
-
-    res.json({
-      success: true,
-      verificationStatus: updated.individual?.verification?.status || 'verified',
-      payoutsEnabled: updated.payouts_enabled,
-      detailsSubmitted: updated.details_submitted
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
