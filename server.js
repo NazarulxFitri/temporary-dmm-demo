@@ -316,14 +316,14 @@ app.post('/api/jobs/:id/quick-pay', async (req, res) => {
     let pi;
     if (job.paymentIntentId) {
       pi = await stripe.paymentIntents.confirm(job.paymentIntentId, {
-        payment_method: 'pm_card_visa',
+        payment_method: 'pm_card_bypassPending',
         return_url: 'https://localhost:4000/return'
       });
     } else {
       pi = await stripe.paymentIntents.create({
         amount: job.amount,
         currency: 'jpy',
-        payment_method: 'pm_card_visa',
+        payment_method: 'pm_card_bypassPending',
         confirm: true,
         return_url: 'https://localhost:4000/return',
         transfer_group: job.id,
